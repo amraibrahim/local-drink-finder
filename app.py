@@ -126,3 +126,21 @@ if user_input and zipcode:
                     )
             else:
                 st.error("no shops found nearby :( )")
+                
+st.markdown(
+    """
+    <style>
+    .watermark {
+        position: fixed;
+        bottom: 10px;
+        right: 10px;
+        opacity: 0.3;
+        font-size: 14px;
+        z-index: 1000;
+        color: gray;
+    }
+    </style>
+    <div class="watermark">by Amra Ibrahim</div>
+    """,
+    unsafe_allow_html=True
+)
