@@ -1,89 +1,125 @@
-import streamlit as st
+import os
+import certifi
+import json
+import numpy as np
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
-import pandas as pd
-import numpy as np
-import pgeocode
+import streamlit as st
+from geopy.distance import distance as geodistance
 import googlemaps
-import requests
+import pgeocode
+import random
+from huggingface_hub import InferenceClient
 
-# Load embedding model
-model = SentenceTransformer('all-MiniLM-L6-v2')
+# Set environment for SSL certs
+os.environ['SSL_CERT_FILE'] = certifi.where()
 
-# Load shop data
-shops = pd.read_csv("cafes.csv")
+# Load secrets
+hf_token = st.secrets["HUGGINGFACEHUB_API_TOKEN"]
+GOOGLE_API_KEY = st.secrets["google_api_key"]
 
-# Geolocation setup
-geolocator = pgeocode.Nominatim('us')
-gmaps = googlemaps.Client(key=st.secrets["GOOGLE_MAPS_API_KEY"])
+# Hugging Face client
+hf_client = InferenceClient(
+    model="mistralai/Mistral-7B-Instruct-v0.1",
+    token=hf_token
+)
 
-# Title and UI
+# Google Maps client
+gmaps = googlemaps.Client(key=GOOGLE_API_KEY)
+
+# Sentence embedding model
+embedder = SentenceTransformer('all-MiniLM-L6-v2')
+
+# Convert ZIP to (lat, lon)
+def zip_to_coords(zipcode):
+    nomi = pgeocode.Nominatim('us')
+    location = nomi.query_postal_code(zipcode)
+    if np.isnan(location.latitude) or np.isnan(location.longitude):
+        return None
+    return (location.latitude, location.longitude)
+
+# Sample drinks per café
+def generate_menu():
+    base_drinks = [
+        "Iced Matcha Latte", "Taro Milk Tea", "Brown Sugar Boba", "Espresso", "Cold Brew",
+        "Mango Green Tea", "Thai Tea", "Honeydew Smoothie", "Vanilla Latte", "Peach Refresher"
+    ]
+    return random.sample(base_drinks, k=4)
+
+# Google Places → café list
+def get_nearby_shops(lat, lon):
+    results = gmaps.places_nearby(
+        location=(lat, lon),
+        radius=5000,
+        type="cafe",
+        keyword="coffee OR tea OR boba"
+    )
+    shops = []
+    for r in results.get("results", []):
+        name = r.get("name")
+        loc = r["geometry"]["location"]
+        shops.append({
+            "shop": name,
+            "location": [loc["lat"], loc["lng"]],
+            "menu": generate_menu()
+        })
+    return shops
+
+# Use Hugging Face to summarize user input
+def summarize_drink_query(prompt):
+    response = hf_client.text_generation(
+        prompt=f"summarize this drink request as a short, specific drink name: {prompt}",
+        max_new_tokens=20,
+        temperature=0.7,
+        return_full_text=False
+    )
+    return response.strip()
+
+# Match drink using HF + embeddings
+def match_drink(user_input, user_location, shops):
+    parsed_query = summarize_drink_query(user_input)
+    input_vector = embedder.encode([parsed_query])
+    results = []
+
+    for shop in shops:
+        menu_vectors = embedder.encode(shop['menu'])
+        similarities = cosine_similarity(input_vector, menu_vectors)
+        best_index = np.argmax(similarities)
+        best_score = float(similarities[0][best_index])
+        best_item = shop['menu'][best_index]
+        dist = geodistance(user_location, tuple(shop['location'])).miles
+
+        results.append({
+            "shop": shop['shop'],
+            "match": best_item,
+            "score": round(best_score, 3),
+            "distance": round(dist, 2)
+        })
+
+    return parsed_query, sorted(results, key=lambda x: (-x['score'], x['distance']))
+
+# Streamlit UI
+st.set_page_config(page_title="Local Drink Finder")
 st.title("☕ local drink finder")
-st.caption("find real cafés near your ZIP code for your ideal drink!")
+st.write("find real cafés near your ZIP code for your ideal drink!")
 
 user_input = st.text_input("what kind of drink are you craving today?")
-user_zip = st.text_input("enter your ZIP code")
+zipcode = st.text_input("enter your ZIP code", max_chars=5)
 
-# Hugging Face query function
-def query_huggingface_model(prompt):
-    API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1"
-    headers = {"Authorization": f"Bearer {st.secrets['HUGGINGFACEHUB_API_TOKEN']}"}
-    payload = {
-        "inputs": prompt,
-        "parameters": {
-            "temperature": 0.7,
-            "top_p": 0.9,
-            "max_new_tokens": 100
-        }
-    }
-    response = requests.post(API_URL, headers=headers, json=payload)
-    return response.json()
-
-# Matching function
-def match_drink(drink, location, shop_data):
-    prompt = f"You are helping someone find a drink like '{drink}'. List possible matching drinks based on keywords only."
-    response_data = query_huggingface_model(prompt)
-
-    try:
-        parsed = response_data[0]["generated_text"]
-    except (KeyError, IndexError):
-        parsed = drink  # fallback
-
-    drink_vector = model.encode([parsed])
-    menu_vectors = model.encode(shop_data['menu'].tolist())
-    sims = cosine_similarity(drink_vector, menu_vectors)[0]
-
-    shop_data['similarity'] = sims
-
-    nearby = geolocator.query_postal_code(location)
-    if nearby is None or pd.isna(nearby.latitude) or pd.isna(nearby.longitude):
-        st.error("Invalid ZIP code.")
-        return None, None
-
-    def haversine(lat1, lon1, lat2, lon2):
-        R = 6371
-        dlat = np.radians(lat2 - lat1)
-        dlon = np.radians(lon2 - lon1)
-        a = np.sin(dlat/2)**2 + np.cos(np.radians(lat1)) * np.cos(np.radians(lat2)) * np.sin(dlon/2)**2
-        c = 2 * np.arcsin(np.sqrt(a))
-        return R * c
-
-    shop_data['distance'] = shop_data.apply(
-        lambda row: haversine(nearby.latitude, nearby.longitude, row['latitude'], row['longitude']), axis=1
-    )
-
-    filtered = shop_data[shop_data['distance'] <= 20]
-    top_matches = filtered.sort_values(by='similarity', ascending=False).head(3)
-
-    return parsed, top_matches
-
-# Run when button is clicked
-if st.button("Find drinks") and user_input and user_zip:
-    with st.spinner("brewing results..."):
-        parsed, matches = match_drink(user_input, user_zip, shops)
-        if matches is not None:
-            st.subheader("here’s what we found 🍵")
-            st.markdown(f"Interpreted your drink as: `{parsed.strip()}`")
-            for i, row in matches.iterrows():
-                st.markdown(f"**{row['shop']}** — {row['menu']}")
-                st.caption(f"{round(row['distance'], 1)} km away")
+if user_input and zipcode:
+    user_location = zip_to_coords(zipcode)
+    if user_location is None:
+        st.error("invalid ZIP code. pls try again.")
+    else:
+        with st.spinner("searching for nearby cafés and matching your drink..."):
+            if shops := get_nearby_shops(*user_location):
+                parsed, matches = match_drink(user_input, user_location, shops)
+                st.subheader(f"interpreted as: *{parsed}*")
+                st.markdown("---")
+                for r in matches:
+                    st.markdown(
+                        f"**{r['shop']}** — *{r['match']}*  \n"
+                        f"Score: `{r['score']}` | distance: `{r['distance']} miles`"
+                    )
+            else:
+                st.error("no shops found nearby :( )")
