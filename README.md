@@ -1,10 +1,10 @@
 # local drink finder ☕
 
-**Find your perfect café or boba drink based on what you're craving — using just a zip code and AI-powered matching.**
+**find your perfect café or boba drink based on what you're craving — using just a zip code and AI-powered matching.**
 
-This app uses either a locally hosted LLM (via Ollama) or Hugging Face's cloud inference API, along with Google Places API, to interpret natural language drink requests and match them to real café and boba shop menus near you.
+this app uses either a locally hosted LLM (via Ollama) or Hugging Face's cloud inference API, along with Google Places API, to interpret natural language drink requests and match them to real café and boba shop menus near you.
 
-Built and designed by Amra Ibrahim.
+built and designed by Amra Ibrahim.
 
 ---
 
