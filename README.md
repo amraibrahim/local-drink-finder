@@ -13,8 +13,8 @@ Built and designed by Amra Ibrahim.
 - Natural-language drink matching (e.g., "sweet iced oat latte with boba")
 - Zip code-based location search
 - Two versions available:
-  - **Local**: uses Mistral via Ollama (runs offline)
-  - **Cloud**: uses Hugging Face's hosted models (no setup needed)
+- **Local**: uses Mistral via Ollama (runs offline)
+- **Cloud**: uses Hugging Face's hosted models (no setup needed)
 - Google Maps API integration for real café location data
 - Streamlit UI for a clean and interactive experience
 
