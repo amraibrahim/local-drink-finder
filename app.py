@@ -59,7 +59,7 @@ def get_nearby_shops(lat, lon):
         })
     return shops
 
-# Use Hugging Face to summarize user input
+# Hugging Face fallback-safe summarizer
 def summarize_drink_query(prompt):
     API_URL = "https://api-inference.huggingface.co/models/google/flan-t5-small"
     headers = {"Authorization": f"Bearer {hf_token}"}
@@ -70,14 +70,15 @@ def summarize_drink_query(prompt):
             "temperature": 0.7
         }
     }
-    response = requests.post(API_URL, headers=headers, json=payload)
-    result = response.json()
     try:
+        response = requests.post(API_URL, headers=headers, json=payload, timeout=10)
+        response.raise_for_status()
+        result = response.json()
         return result[0]["generated_text"].strip()
-    except (KeyError, IndexError):
-        return prompt.strip()  # fallback
+    except (requests.exceptions.RequestException, ValueError, KeyError, IndexError):
+        return prompt.strip()
 
-# Match drink using HF + embeddings
+# Drink match logic
 def match_drink(user_input, user_location, shops):
     parsed_query = summarize_drink_query(user_input)
     input_vector = embedder.encode([parsed_query])
