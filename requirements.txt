@@ -1,0 +1,11 @@
+pip>=23.0
+setuptools>=68.0
+streamlit
+python-dotenv
+numpy
+scikit-learn
+sentence-transformers
+geopy
+pgeocode
+googlemaps
+ollama
