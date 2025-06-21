@@ -1,0 +1,12 @@
+[
+  {
+    "shop": "Java Junction",
+    "location": [30.2672, -97.7431],
+    "menu": ["Iced Oat Milk Latte", "Cold Brew", "Cappuccino", "Americano"]
+  },
+  {
+    "shop": "Brew Haven",
+    "location": [30.2700, -97.7500],
+    "menu": ["Honey Almond Flat White", "Espresso", "Iced Matcha", "Nitro Cold Brew"]
+  }
+]
