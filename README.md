@@ -8,21 +8,47 @@ built and designed by Amra Ibrahim.
 
 ---
 
-## features
+## 🔍 features
 
-- Natural-language drink matching (e.g., "sweet iced oat latte with boba")
-- Zip code-based location search
-- Two versions available:
-- **Local**: uses Mistral via Ollama (runs offline)
-- **Cloud**: uses Hugging Face's hosted models (no setup needed)
-- Google Maps API integration for real café location data
-- Streamlit UI for a clean and interactive experience
+- natural-language drink matching (e.g., "sweet iced oat latte with boba")
+- zip code-based location search
+- two available versions:
+  - **cloud version** (no setup needed): uses Hugging Face API
+  - **local version** (offline): uses Mistral via Ollama + local vector embeddings
+- real café location data via Google Maps API
+- streamlit UI for a clean and interactive experience
 
 ---
 
-## installation (local version)
+## 🌐 how to access
 
-1. Clone this repo:
-   ```bash
-   git clone https://github.com/YOUR_USERNAME/local-drink-finder.git
-   cd local-drink-finder
+### cloud version (public):
+- available at: **https://yourlocaldrinkfinder.streamlit.app**
+- no installation or setup required.
+
+### local version (developer setup):
+- run locally on your machine using Python, Ollama, and your own API keys
+
+---
+
+## 🧠 tech stack
+
+- python
+- [streamlit](https://streamlit.io)
+- [ollama + mistral](https://ollama.com)
+- [huggingface](https://huggingface.co)
+- [sentence-transformers](https://www.sbert.net)
+- [google maps API](https://developers.google.com/maps)
+- [scikit-learn](https://scikit-learn.org)
+- [pgeocode](https://pypi.org/project/pgeocode)
+- [geopy](https://pypi.org/project/geopy)
+
+---
+
+## 🛠️ installation (for local version)
+
+1. **Clone the repo**
+
+```bash
+git clone https://github.com/yourusername/local-drink-finder.git
+cd local-drink-finder
