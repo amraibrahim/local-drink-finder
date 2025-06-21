@@ -9,7 +9,7 @@ from geopy.distance import distance as geodistance
 import googlemaps
 import pgeocode
 import random
-from huggingface_hub import InferenceClient
+import requests
 
 # Set environment for SSL certs
 os.environ['SSL_CERT_FILE'] = certifi.where()
@@ -17,12 +17,6 @@ os.environ['SSL_CERT_FILE'] = certifi.where()
 # Load secrets
 hf_token = st.secrets["HUGGINGFACEHUB_API_TOKEN"]
 GOOGLE_API_KEY = st.secrets["google_api_key"]
-
-# Hugging Face client
-hf_client = InferenceClient(
-    model="google/flan-t5-small",
-    token=hf_token
-)
 
 # Google Maps client
 gmaps = googlemaps.Client(key=GOOGLE_API_KEY)
@@ -67,13 +61,21 @@ def get_nearby_shops(lat, lon):
 
 # Use Hugging Face to summarize user input
 def summarize_drink_query(prompt):
-    response = hf_client.text_generation(
-        prompt=f"summarize this drink request as a short, specific drink name: {prompt}",
-        max_new_tokens=20,
-        temperature=0.7,
-        return_full_text=False
-    )
-    return response.strip()
+    API_URL = "https://api-inference.huggingface.co/models/google/flan-t5-small"
+    headers = {"Authorization": f"Bearer {hf_token}"}
+    payload = {
+        "inputs": f"summarize this drink request as a short, specific drink name: {prompt}",
+        "parameters": {
+            "max_new_tokens": 20,
+            "temperature": 0.7
+        }
+    }
+    response = requests.post(API_URL, headers=headers, json=payload)
+    result = response.json()
+    try:
+        return result[0]["generated_text"].strip()
+    except (KeyError, IndexError):
+        return prompt.strip()  # fallback
 
 # Match drink using HF + embeddings
 def match_drink(user_input, user_location, shops):
