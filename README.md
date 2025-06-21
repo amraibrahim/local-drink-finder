@@ -8,7 +8,7 @@ built and designed by Amra Ibrahim.
 
 ---
 
-## 🔍 features
+# features
 
 - natural-language drink matching (e.g., "sweet iced oat latte with boba")
 - zip code-based location search
