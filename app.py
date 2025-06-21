@@ -20,7 +20,7 @@ GOOGLE_API_KEY = st.secrets["google_api_key"]
 
 # Hugging Face client
 hf_client = InferenceClient(
-    model="mistralai/Mistral-7B-Instruct-v0.1",
+    model="google/flan-t5-small",
     token=hf_token
 )
 
