@@ -1,10 +1,7 @@
 import os
 import certifi
-os.environ['SSL_CERT_FILE'] = certifi.where()
-
 import json
 import numpy as np
-from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 import ollama
@@ -14,15 +11,15 @@ import googlemaps
 import pgeocode
 import random
 
-# Load environment variables
-load_dotenv()
-GOOGLE_API_KEY = "AIzaSyBGx_SolLRvVB5fIHEH7zpCNUnYZ7WFLZk"
+os.environ['SSL_CERT_FILE'] = certifi.where()
+GOOGLE_API_KEY = st.secrets["google_api_key"]
 gmaps = googlemaps.Client(key=GOOGLE_API_KEY)
 
-# Load embedding model
+
+# Embedding model
 embedder = SentenceTransformer('all-MiniLM-L6-v2')
 
-# Convert ZIP → (lat, lon)
+# Convert ZIP to (lat, lon)
 def zip_to_coords(zipcode):
     nomi = pgeocode.Nominatim('us')
     location = nomi.query_postal_code(zipcode)
@@ -30,7 +27,7 @@ def zip_to_coords(zipcode):
         return None
     return (location.latitude, location.longitude)
 
-# Generate random menu items per shop
+# Sample drinks per café
 def generate_menu():
     base_drinks = [
         "Iced Matcha Latte", "Taro Milk Tea", "Brown Sugar Boba", "Espresso", "Cold Brew",
@@ -38,7 +35,7 @@ def generate_menu():
     ]
     return random.sample(base_drinks, k=4)
 
-# Get nearby cafés using Google Places
+# Google Places → café list
 def get_nearby_shops(lat, lon):
     results = gmaps.places_nearby(
         location=(lat, lon),
@@ -57,7 +54,7 @@ def get_nearby_shops(lat, lon):
         })
     return shops
 
-# Match drink using LLM + embeddings
+# Match drink using Ollama + embeddings
 def match_drink(user_input, user_location, shops):
     response = ollama.chat(model='mistral', messages=[
         {
@@ -104,12 +101,10 @@ if user_input and zipcode:
                 parsed, matches = match_drink(user_input, user_location, shops)
                 st.subheader(f"interpreted as: *{parsed}*")
                 st.markdown("---")
-
                 for r in matches:
-                    st.markdown(f"""
-                    **{r['shop']}** — *{r['match']}*  
-                    Score: `{r['score']}` | distance: `{r['distance']} miles`
-                    """)
-
+                    st.markdown(
+                        f"**{r['shop']}** — *{r['match']}*  \n"
+                        f"Score: `{r['score']}` | distance: `{r['distance']} miles`"
+                    )
             else:
                 st.error("no shops found nearby :( )")
