@@ -20,7 +20,7 @@ built and designed by Amra Ibrahim.
 
 ---
 
-## 🌐 how to access
+# how to access
 
 ### cloud version (public):
 - available at: **https://yourlocaldrinkfinder.streamlit.app**
@@ -31,7 +31,7 @@ built and designed by Amra Ibrahim.
 
 ---
 
-## 🧠 tech stack
+# tech stack
 
 - python
 - [streamlit](https://streamlit.io)
@@ -45,7 +45,7 @@ built and designed by Amra Ibrahim.
 
 ---
 
-## 🛠️ installation (for local version)
+# installation (for local version)
 
 1. **Clone the repo**
 
