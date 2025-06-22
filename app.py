@@ -112,7 +112,7 @@ def match_drink(user_input, user_location, shops):
         results.append({
             "shop": shop['shop'],
             "match": best_item,
-            "score": round(best_score, 3),
+            "similarity score": round(best_score, 3),
             "distance": round(dist, 2)
         })
 
