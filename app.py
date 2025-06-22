@@ -10,6 +10,7 @@ import googlemaps
 import pgeocode
 import random
 import requests
+from huggingface_hub import InferenceClient
 
 # Set environment for SSL certs
 os.environ['SSL_CERT_FILE'] = certifi.where()
@@ -17,6 +18,12 @@ os.environ['SSL_CERT_FILE'] = certifi.where()
 # Load secrets
 hf_token = st.secrets["HUGGINGFACEHUB_API_TOKEN"]
 GOOGLE_API_KEY = st.secrets["google_api_key"]
+
+# Hugging Face client
+hf_client = InferenceClient(
+    model="google/flan-t5-small",
+    token=hf_token
+)
 
 # Google Maps client
 gmaps = googlemaps.Client(key=GOOGLE_API_KEY)
@@ -59,7 +66,7 @@ def get_nearby_shops(lat, lon):
         })
     return shops
 
-# Hugging Face fallback-safe summarizer
+# Use Hugging Face to summarize user input
 def summarize_drink_query(prompt):
     API_URL = "https://api-inference.huggingface.co/models/google/flan-t5-small"
     headers = {"Authorization": f"Bearer {hf_token}"}
@@ -70,15 +77,19 @@ def summarize_drink_query(prompt):
             "temperature": 0.7
         }
     }
+    response = requests.post(API_URL, headers=headers, json=payload)
     try:
-        response = requests.post(API_URL, headers=headers, json=payload, timeout=10)
-        response.raise_for_status()
         result = response.json()
         return result[0]["generated_text"].strip()
-    except (requests.exceptions.RequestException, ValueError, KeyError, IndexError):
-        return prompt.strip()
+    except (KeyError, IndexError, json.JSONDecodeError):
+        return prompt.strip()  # fallback
 
-# Drink match logic
+# Filter out alcohol-related inputs
+def is_valid_drink(prompt):
+    banned_keywords = ["rum", "vodka", "tequila", "whiskey", "bourbon", "beer", "wine", "champagne", "gin", "alcohol"]
+    return not any(word in prompt.lower() for word in banned_keywords)
+
+# Match drink using HF + embeddings
 def match_drink(user_input, user_location, shops):
     parsed_query = summarize_drink_query(user_input)
     input_vector = embedder.encode([parsed_query])
@@ -103,44 +114,32 @@ def match_drink(user_input, user_location, shops):
 
 # Streamlit UI
 st.set_page_config(page_title="Local Drink Finder")
-st.title("☕ local drink finder")
+st.title("local drink finder")
 st.write("find real cafés near your ZIP code for your ideal drink!")
 
 user_input = st.text_input("what kind of drink are you craving today?")
 zipcode = st.text_input("enter your ZIP code", max_chars=5)
 
 if user_input and zipcode:
-    user_location = zip_to_coords(zipcode)
-    if user_location is None:
-        st.error("invalid ZIP code. pls try again.")
+    if not is_valid_drink(user_input):
+        st.warning("please enter a non-alcoholic drink request.")
     else:
-        with st.spinner("searching for nearby cafés and matching your drink..."):
-            if shops := get_nearby_shops(*user_location):
-                parsed, matches = match_drink(user_input, user_location, shops)
-                st.subheader(f"interpreted as: *{parsed}*")
-                st.markdown("---")
-                for r in matches:
-                    st.markdown(
-                        f"**{r['shop']}** — *{r['match']}*  \n"
-                        f"Score: `{r['score']}` | distance: `{r['distance']} miles`"
-                    )
-            else:
-                st.error("no shops found nearby :( )")
-                
-st.markdown(
-    """
-    <style>
-    .watermark {
-        position: fixed;
-        bottom: 10px;
-        right: 10px;
-        opacity: 0.3;
-        font-size: 14px;
-        z-index: 1000;
-        color: gray;
-    }
-    </style>
-    <div class="watermark">by Amra Ibrahim</div>
-    """,
-    unsafe_allow_html=True
-)
+        user_location = zip_to_coords(zipcode)
+        if user_location is None:
+            st.error("invalid ZIP code. pls try again.")
+        else:
+            with st.spinner("searching for nearby cafés and matching your drink..."):
+                if shops := get_nearby_shops(*user_location):
+                    parsed, matches = match_drink(user_input, user_location, shops)
+                    st.subheader(f"interpreted as: *{parsed}*")
+                    st.markdown("---")
+                    for r in matches:
+                        st.markdown(
+                            f"**{r['shop']}** — *{r['match']}*  \n"
+                            f"Score: `{r['score']}` | distance: `{r['distance']} miles`"
+                        )
+                else:
+                    st.error("no shops found nearby :(")
+
+st.markdown("---")
+st.markdown("**by Amra Ibrahim**")
