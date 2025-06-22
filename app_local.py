@@ -23,12 +23,28 @@ gmaps = googlemaps.Client(key=GOOGLE_API_KEY)
 # Embedding model
 embedder = SentenceTransformer('all-MiniLM-L6-v2')
 
-# Drink filter to exclude non-drinks or inappropriate inputs
-UNWANTED_KEYWORDS = ["alcohol", "vodka", "rum", "tequila", "whiskey", "beer", "wine"]
+# Broad list of cafe drinks to filter by
+CAFE_DRINKS = [
+    "espresso", "latte", "cappuccino", "americano", "cold brew", "macchiato", "mocha",
+    "flat white", "matcha", "chai latte", "green tea", "black tea", "oolong tea",
+    "herbal tea", "bubble tea", "milk tea", "taro milk tea", "thai tea", "iced coffee",
+    "drip coffee", "frappuccino", "smoothie", "honeydew smoothie", "mango smoothie",
+    "strawberry smoothie", "blueberry smoothie", "pineapple smoothie", "banana smoothie",
+    "vanilla latte", "caramel latte", "peach tea", "lemon tea", "hibiscus tea", "acai refresher",
+    "refreshers", "boba", "brown sugar boba", "fruit tea", "peppermint mocha",
+    "hazelnut latte", "rose latte", "lavender latte", "pumpkin spice latte",
+    "white chocolate mocha", "coconut milk tea", "almond milk latte", "dirty chai",
+    "iced mocha", "iced espresso", "café au lait", "breve", "nitro cold brew",
+    "iced americano", "iced caramel macchiato", "iced matcha", "iced vanilla latte",
+    "chai frappuccino", "java chip frappuccino", "iced herbal tea", "london fog",
+    "shaken espresso", "flat black", "cortado", "maple latte", "espresso tonic",
+    "turmeric latte", "rose matcha", "chocolate cold foam", "toasted vanilla shaken espresso",
+    "hazelnut macchiato", "cinnamon dolce latte", "salted caramel cold brew"
+]
 
-def is_valid_drink(query):
-    lowered = query.lower()
-    return not any(keyword in lowered for keyword in UNWANTED_KEYWORDS)
+# Determine if the parsed drink is cafe-appropriate
+def is_cafe_drink(query):
+    return any(drink in query.lower() for drink in CAFE_DRINKS)
 
 # Convert ZIP to (lat, lon)
 def zip_to_coords(zipcode):
@@ -40,11 +56,7 @@ def zip_to_coords(zipcode):
 
 # Sample drinks per café
 def generate_menu():
-    base_drinks = [
-        "Iced Matcha Latte", "Taro Milk Tea", "Brown Sugar Boba", "Espresso", "Cold Brew",
-        "Mango Green Tea", "Thai Tea", "Honeydew Smoothie", "Vanilla Latte", "Peach Refresher"
-    ]
-    return random.sample(base_drinks, k=4)
+    return random.sample(CAFE_DRINKS, k=4)
 
 # Google Places → café list
 def get_nearby_shops(lat, lon):
@@ -70,10 +82,14 @@ def match_drink(user_input, user_location, shops):
     response = ollama.chat(model='mistral', messages=[
         {
             "role": "user",
-            "content": f"summarize this drink request as a short, specific drink name or description. it can be coffee, tea, boba, smoothie, etc: {user_input}"
+            "content": f"Summarize this drink request as a short, specific cafe-style drink. Return only drinks typically found at cafes like coffee, tea, boba, smoothies, etc. Avoid anything that would not be sold in a cafe: {user_input}"
         }
     ])
     parsed_query = response['message']['content'].strip()
+
+    if not is_cafe_drink(parsed_query):
+        return parsed_query, []  # return no matches if the parsed query isn't a cafe drink
+
     input_vector = embedder.encode([parsed_query])
     results = []
 
@@ -103,24 +119,23 @@ user_input = st.text_input("what kind of drink are you craving today?")
 zipcode = st.text_input("enter your ZIP code", max_chars=5)
 
 if user_input and zipcode:
-    if not is_valid_drink(user_input):
-        st.warning("Please enter a non-alcoholic drink.")
+    user_location = zip_to_coords(zipcode)
+    if user_location is None:
+        st.error("invalid ZIP code. pls try again.")
     else:
-        user_location = zip_to_coords(zipcode)
-        if user_location is None:
-            st.error("invalid ZIP code. pls try again.")
-        else:
-            with st.spinner("searching for nearby cafés and matching your drink..."):
-                if shops := get_nearby_shops(*user_location):
-                    parsed, matches = match_drink(user_input, user_location, shops)
-                    st.subheader(f"interpreted as: *{parsed}*")
-                    st.markdown("---")
-                    for r in matches:
-                        st.markdown(
-                            f"**{r['shop']}** — *{r['match']}*  \n"
-                            f"Score: `{r['score']}` | distance: `{r['distance']} miles`"
-                        )
-                else:
-                    st.error("no shops found nearby :( )")
+        with st.spinner("searching for nearby cafés and matching your drink..."):
+            if shops := get_nearby_shops(*user_location):
+                parsed, matches = match_drink(user_input, user_location, shops)
+                st.subheader(f"interpreted as: *{parsed}*")
+                st.markdown("---")
+                if not matches:
+                    st.warning("no valid cafe drink match found for that request.")
+                for r in matches:
+                    st.markdown(
+                        f"**{r['shop']}** — *{r['match']}*  \n"
+                        f"Score: `{r['score']}` | distance: `{r['distance']} miles`"
+                    )
+            else:
+                st.error("no shops found nearby :( )")
 
 st.markdown("<div style='text-align: right; font-size: small;'>by Amra Ibrahim</div>", unsafe_allow_html=True)

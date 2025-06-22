@@ -1,35 +1,51 @@
 import os
 import certifi
+from dotenv import load_dotenv
 import json
 import numpy as np
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
+import requests
 import streamlit as st
 from geopy.distance import distance as geodistance
 import googlemaps
 import pgeocode
 import random
-import requests
-from huggingface_hub import InferenceClient
 
-# Set environment for SSL certs
+# Cert fix
 os.environ['SSL_CERT_FILE'] = certifi.where()
 
-# Load secrets
-hf_token = st.secrets["HUGGINGFACEHUB_API_TOKEN"]
-GOOGLE_API_KEY = st.secrets["google_api_key"]
-
-# Hugging Face client
-hf_client = InferenceClient(
-    model="google/flan-t5-small",
-    token=hf_token
-)
-
-# Google Maps client
+# Load environment variables
+load_dotenv()
+GOOGLE_API_KEY = os.getenv("google_api_key")
+HF_API_KEY = os.getenv("hf_api_key")
 gmaps = googlemaps.Client(key=GOOGLE_API_KEY)
 
-# Sentence embedding model
+# Embedding model
 embedder = SentenceTransformer('all-MiniLM-L6-v2')
+
+# Broad list of cafe drinks to filter by
+CAFE_DRINKS = [
+    "espresso", "latte", "cappuccino", "americano", "cold brew", "macchiato", "mocha",
+    "flat white", "matcha", "chai latte", "green tea", "black tea", "oolong tea",
+    "herbal tea", "bubble tea", "milk tea", "taro milk tea", "thai tea", "iced coffee",
+    "drip coffee", "frappuccino", "smoothie", "honeydew smoothie", "mango smoothie",
+    "strawberry smoothie", "blueberry smoothie", "pineapple smoothie", "banana smoothie",
+    "vanilla latte", "caramel latte", "peach tea", "lemon tea", "hibiscus tea", "acai refresher",
+    "refreshers", "boba", "brown sugar boba", "fruit tea", "peppermint mocha",
+    "hazelnut latte", "rose latte", "lavender latte", "pumpkin spice latte",
+    "white chocolate mocha", "coconut milk tea", "almond milk latte", "dirty chai",
+    "iced mocha", "iced espresso", "café au lait", "breve", "nitro cold brew",
+    "iced americano", "iced caramel macchiato", "iced matcha", "iced vanilla latte",
+    "chai frappuccino", "java chip frappuccino", "iced herbal tea", "london fog",
+    "shaken espresso", "flat black", "cortado", "maple latte", "espresso tonic",
+    "turmeric latte", "rose matcha", "chocolate cold foam", "toasted vanilla shaken espresso",
+    "hazelnut macchiato", "cinnamon dolce latte", "salted caramel cold brew"
+]
+
+# Determine if the parsed drink is cafe-appropriate
+def is_cafe_drink(query):
+    return any(drink in query.lower() for drink in CAFE_DRINKS)
 
 # Convert ZIP to (lat, lon)
 def zip_to_coords(zipcode):
@@ -41,11 +57,7 @@ def zip_to_coords(zipcode):
 
 # Sample drinks per café
 def generate_menu():
-    base_drinks = [
-        "Iced Matcha Latte", "Taro Milk Tea", "Brown Sugar Boba", "Espresso", "Cold Brew",
-        "Mango Green Tea", "Thai Tea", "Honeydew Smoothie", "Vanilla Latte", "Peach Refresher"
-    ]
-    return random.sample(base_drinks, k=4)
+    return random.sample(CAFE_DRINKS, k=4)
 
 # Google Places → café list
 def get_nearby_shops(lat, lon):
@@ -66,32 +78,26 @@ def get_nearby_shops(lat, lon):
         })
     return shops
 
-# Use Hugging Face to summarize user input
-def summarize_drink_query(prompt):
-    API_URL = "https://api-inference.huggingface.co/models/google/flan-t5-small"
-    headers = {"Authorization": f"Bearer {hf_token}"}
-    payload = {
-        "inputs": f"summarize this drink request as a short, specific drink name: {prompt}",
-        "parameters": {
-            "max_new_tokens": 20,
-            "temperature": 0.7
-        }
-    }
-    response = requests.post(API_URL, headers=headers, json=payload)
-    try:
-        result = response.json()
-        return result[0]["generated_text"].strip()
-    except (KeyError, IndexError, json.JSONDecodeError):
-        return prompt.strip()  # fallback
-
-# Filter out alcohol-related inputs
-def is_valid_drink(prompt):
-    banned_keywords = ["rum", "vodka", "tequila", "whiskey", "bourbon", "beer", "wine", "champagne", "gin", "alcohol"]
-    return not any(word in prompt.lower() for word in banned_keywords)
-
-# Match drink using HF + embeddings
+# Match drink using Hugging Face + embeddings
 def match_drink(user_input, user_location, shops):
-    parsed_query = summarize_drink_query(user_input)
+    headers = {
+        "Authorization": f"Bearer {HF_API_KEY}"
+    }
+    payload = {
+        "inputs": f"Summarize this drink request as a short, specific cafe-style drink. Return only drinks typically found at cafes like coffee, tea, boba, smoothies, etc. Avoid anything that would not be sold in a cafe: {user_input}",
+        "parameters": {"max_new_tokens": 15, "return_full_text": False}
+    }
+    response = requests.post(
+        "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2",
+        headers=headers,
+        json=payload
+    )
+    result = response.json()
+    parsed_query = result[0]['generated_text'].strip() if isinstance(result, list) and result else user_input
+
+    if not is_cafe_drink(parsed_query):
+        return parsed_query, []
+
     input_vector = embedder.encode([parsed_query])
     results = []
 
@@ -114,32 +120,30 @@ def match_drink(user_input, user_location, shops):
 
 # Streamlit UI
 st.set_page_config(page_title="Local Drink Finder")
-st.title("local drink finder")
+st.title("☕ local drink finder")
 st.write("find real cafés near your ZIP code for your ideal drink!")
 
 user_input = st.text_input("what kind of drink are you craving today?")
 zipcode = st.text_input("enter your ZIP code", max_chars=5)
 
 if user_input and zipcode:
-    if not is_valid_drink(user_input):
-        st.warning("please enter a non-alcoholic drink request.")
+    user_location = zip_to_coords(zipcode)
+    if user_location is None:
+        st.error("invalid ZIP code. pls try again.")
     else:
-        user_location = zip_to_coords(zipcode)
-        if user_location is None:
-            st.error("invalid ZIP code. pls try again.")
-        else:
-            with st.spinner("searching for nearby cafés and matching your drink..."):
-                if shops := get_nearby_shops(*user_location):
-                    parsed, matches = match_drink(user_input, user_location, shops)
-                    st.subheader(f"interpreted as: *{parsed}*")
-                    st.markdown("---")
-                    for r in matches:
-                        st.markdown(
-                            f"**{r['shop']}** — *{r['match']}*  \n"
-                            f"Score: `{r['score']}` | distance: `{r['distance']} miles`"
-                        )
-                else:
-                    st.error("no shops found nearby :(")
+        with st.spinner("searching for nearby cafés and matching your drink..."):
+            if shops := get_nearby_shops(*user_location):
+                parsed, matches = match_drink(user_input, user_location, shops)
+                st.subheader(f"interpreted as: *{parsed}*")
+                st.markdown("---")
+                if not matches:
+                    st.warning("no valid cafe drink match found for that request.")
+                for r in matches:
+                    st.markdown(
+                        f"**{r['shop']}** — *{r['match']}*  \n"
+                        f"Score: `{r['score']}` | distance: `{r['distance']} miles`"
+                    )
+            else:
+                st.error("no shops found nearby :( )")
 
-st.markdown("---")
-st.markdown("**by Amra Ibrahim**")
+st.markdown("<div style='text-align: right; font-size: small;'>by Amra Ibrahim</div>", unsafe_allow_html=True)
