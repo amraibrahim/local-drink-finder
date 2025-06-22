@@ -1,54 +1,36 @@
 # local drink finder ☕
 
-**find your perfect café or boba drink based on what you're craving — using just a zip code and AI-powered matching.**
+**find your perfect café or boba drink based on what you're craving — using just a zip code and a local ai model.**
 
-this app uses either a locally hosted LLM (via Ollama) or Hugging Face's cloud inference API, along with Google Places API, to interpret natural language drink requests and match them to real café and boba shop menus near you.
-
-built and designed by Amra Ibrahim.
+this app uses a locally hosted llm (via ollama) and google places api to interpret natural language drink requests and match them to real café and boba shop menus near you.
 
 ---
 
-# features
+## features
 
 - natural-language drink matching (e.g., "sweet iced oat latte with boba")
 - zip code-based location search
-- two available versions:
-  - **cloud version** (no setup needed): uses Hugging Face API
-  - **local version** (offline): uses Mistral via Ollama + local vector embeddings
-- real café location data via Google Maps API
-- streamlit UI for a clean and interactive experience
+- local llm (mistral via ollama) — works offline for ai processing
+- google maps api integration for real café data
+- streamlit ui for a smooth experience
 
 ---
 
-# how to access
-
-### cloud version (public):
-- available at: **https://yourlocaldrinkfinder.streamlit.app**
-- no installation or setup required.
-
-### local version (developer setup):
-- run locally on your machine using Python, Ollama, and your own API keys
-
----
-
-# tech stack
+## tech stack used for this
 
 - python
 - [streamlit](https://streamlit.io)
-- [ollama + mistral](https://ollama.com)
-- [huggingface](https://huggingface.co)
+- [ollama](https://ollama.com) + mistral llm
 - [sentence-transformers](https://www.sbert.net)
-- [google maps API](https://developers.google.com/maps)
-- [scikit-learn](https://scikit-learn.org)
-- [pgeocode](https://pypi.org/project/pgeocode)
-- [geopy](https://pypi.org/project/geopy)
+- [google maps api](https://developers.google.com/maps)
 
 ---
 
-# installation (for local version)
+## installation
 
-1. **Clone the repo**
+1. **clone the repository**
 
 ```bash
-git clone https://github.com/yourusername/local-drink-finder.git
+git clone https://github.com/amraibrahim/local-drink-finder.git
 cd local-drink-finder
+
