@@ -35,7 +35,7 @@ CAFE_DRINKS = [
     "refreshers", "boba", "brown sugar boba", "fruit tea", "peppermint mocha",
     "hazelnut latte", "rose latte", "lavender latte", "pumpkin spice latte",
     "white chocolate mocha", "coconut milk tea", "almond milk latte", "dirty chai",
-    "iced mocha", "iced espresso", "café au lait", "breve", "nitro cold brew",
+    "iced mocha", "iced espresso", "café au lait", "affogato", "breve", "nitro cold brew",
     "iced americano", "iced caramel macchiato", "iced matcha", "iced vanilla latte",
     "chai frappuccino", "java chip frappuccino", "iced herbal tea", "london fog",
     "shaken espresso", "flat black", "cortado", "maple latte", "espresso tonic",

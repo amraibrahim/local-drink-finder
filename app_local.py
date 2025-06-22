@@ -27,7 +27,7 @@ embedder = SentenceTransformer('all-MiniLM-L6-v2')
 CAFE_DRINKS = [
     "espresso", "latte", "cappuccino", "americano", "cold brew", "macchiato", "mocha",
     "flat white", "matcha", "chai latte", "green tea", "black tea", "oolong tea",
-    "herbal tea", "bubble tea", "milk tea", "taro milk tea", "thai tea", "iced coffee",
+    "herbal tea", "bubble tea", "milk tea", "taro milk tea", "affogato", "thai tea", "iced coffee",
     "drip coffee", "frappuccino", "smoothie", "honeydew smoothie", "mango smoothie",
     "strawberry smoothie", "blueberry smoothie", "pineapple smoothie", "banana smoothie",
     "vanilla latte", "caramel latte", "peach tea", "lemon tea", "hibiscus tea", "acai refresher",
