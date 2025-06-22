@@ -112,7 +112,7 @@ def match_drink(user_input, user_location, shops):
         results.append({
             "shop": shop['shop'],
             "match": best_item,
-            "similarity score": round(best_score, 3),
+            "score": round(best_score, 3),
             "distance": round(dist, 2)
         })
 
@@ -138,11 +138,12 @@ if user_input and zipcode:
                 st.markdown("---")
                 if not matches:
                     st.warning("no valid cafe drink match found for that request.")
-                for r in matches:
-                    st.markdown(
-                        f"**{r['shop']}** — *{r['match']}*  \n"
-                        f"Score: `{r['score']}` | distance: `{r['distance']} miles`"
-                    )
+                else:
+                    for r in matches:
+                        st.markdown(
+                            f"**{r['shop']}** — *{r['match']}*  \n"
+                            f"similarity score: `{r['score']}` | distance: `{r['distance']} miles`"
+                        )
             else:
                 st.error("no shops found nearby :( )")
 

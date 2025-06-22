@@ -88,7 +88,7 @@ def match_drink(user_input, user_location, shops):
     parsed_query = response['message']['content'].strip()
 
     if not is_cafe_drink(parsed_query):
-        return parsed_query, []  # return no matches if the parsed query isn't a cafe drink
+        return parsed_query, []
 
     input_vector = embedder.encode([parsed_query])
     results = []
@@ -104,11 +104,11 @@ def match_drink(user_input, user_location, shops):
         results.append({
             "shop": shop['shop'],
             "match": best_item,
-            "score": round(best_score, 3),
+            "similarity score": round(best_score, 3),
             "distance": round(dist, 2)
         })
 
-    return parsed_query, sorted(results, key=lambda x: (-x['score'], x['distance']))
+    return parsed_query, sorted(results, key=lambda x: (-x['similarity score'], x['distance']))
 
 # Streamlit UI
 st.set_page_config(page_title="Local Drink Finder")
@@ -130,11 +130,12 @@ if user_input and zipcode:
                 st.markdown("---")
                 if not matches:
                     st.warning("no valid cafe drink match found for that request.")
-                for r in matches:
-                    st.markdown(
-                        f"**{r['shop']}** — *{r['match']}*  \n"
-                        f"Score: `{r['score']}` | distance: `{r['distance']} miles`"
-                    )
+                else:
+                    for r in matches:
+                        st.markdown(
+                            f"**{r['shop']}** — *{r['match']}*  \n"
+                            f"similarity score: `{r['similarity score']}` | distance: `{r['distance']} miles`"
+                        )
             else:
                 st.error("no shops found nearby :( )")
 
